@@ -19,19 +19,14 @@
 
 package com.sk89q.minecraft.util.commands;
 
+import com.sk89q.util.StringUtil;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import com.sk89q.util.StringUtil;
 
 /**
  * <p>Manager for handling commands. This allows you to easily process commands,
@@ -456,7 +451,18 @@ public abstract class CommandsManager<T> {
 
         int argsCount = args.length - 1 - level;
 
-        if (method.isAnnotationPresent(NestedCommand.class)) {
+        // checks if we need to execute the body of the nested command method (false)
+        // or display the help what commands are available (true)
+        // this is all for an args count of 0 if it is > 0 and a NestedCommand Annotation is present
+        // it will always handle the methods that NestedCommand points to
+        // e.g.:
+        //  - /cmd - @NestedCommand(executeBody = true) will go into the else loop and execute code in that method
+        //  - /cmd <arg1> <arg2> - @NestedCommand(executeBody = true) will always go to the nested command class
+        //  - /cmd <arg1> - @NestedCommand(executeBody = false) will always go to the nested command class not matter the args
+        boolean executeNested = method.isAnnotationPresent(NestedCommand.class)
+                && (argsCount > 0 || !method.getAnnotation(NestedCommand.class).executeBody());
+
+        if (executeNested) {
             if (argsCount == 0) {
                 throw new MissingNestedCommandException("Sub-command required.",
                         getNestedUsage(args, level, method, player));
